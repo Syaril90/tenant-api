@@ -1,0 +1,46 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: property-ops-postgres
+    environment:
+      POSTGRES_DB: property_ops
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d property_ops"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+    container_name: property-ops-api
+    env_file:
+      - .env
+    environment:
+      HTTP_ADDRESS: ${HTTP_ADDRESS:-:8080}
+      DATABASE_URL: ${DATABASE_URL:-postgres://postgres:postgres@postgres:5432/property_ops?sslmode=disable}
+      STORAGE_ROOT: ${STORAGE_ROOT:-/app/storage}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
+      BILLPLZ_API_BASE_URL: ${BILLPLZ_API_BASE_URL:-https://www.billplz-sandbox.com/api}
+      BILLPLZ_API_KEY: ${BILLPLZ_API_KEY:-}
+      BILLPLZ_X_SIGNATURE_KEY: ${BILLPLZ_X_SIGNATURE_KEY:-}
+      BILLPLZ_COLLECTION_ID: ${BILLPLZ_COLLECTION_ID:-}
+      BILLPLZ_CALLBACK_BASE_URL: ${BILLPLZ_CALLBACK_BASE_URL:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    volumes:
+      - api-storage:/app/storage
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  api-storage:
