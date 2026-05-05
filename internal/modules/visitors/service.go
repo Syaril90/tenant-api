@@ -85,7 +85,7 @@ type residentLookup struct {
 }
 
 func (m *Module) List(unitCode string) ([]Item, error) {
-	query := m.db.Order("visit_date asc").Order("created_at desc")
+	query := m.db.Order("visit_date desc").Order("updated_at desc").Order("created_at desc")
 	if strings.TrimSpace(unitCode) != "" {
 		query = query.Where("unit_code = ?", strings.TrimSpace(unitCode))
 	}
@@ -164,7 +164,7 @@ func (m *Module) Create(input CreateVisitorInput) (*Item, error) {
 
 func (m *Module) AdminVisitorRequests() ([]Item, error) {
 	var requests []VisitorRequest
-	if err := m.db.Order("visit_date asc").Order("created_at desc").Find(&requests).Error; err != nil {
+	if err := m.db.Order("visit_date desc").Order("updated_at desc").Order("created_at desc").Find(&requests).Error; err != nil {
 		return nil, apperrors.Internal("failed to list admin visitor requests", err)
 	}
 
@@ -339,7 +339,7 @@ func (m *Module) ReplaceAdminParkingConfigs(input []AdminBuildingConfigInput) ([
 
 func (m *Module) workspaceFromTransaction(tx *gorm.DB) (*AdminWorkspace, error) {
 	var requests []VisitorRequest
-	if err := tx.Order("visit_date asc").Order("created_at desc").Find(&requests).Error; err != nil {
+	if err := tx.Order("visit_date desc").Order("updated_at desc").Order("created_at desc").Find(&requests).Error; err != nil {
 		return nil, err
 	}
 

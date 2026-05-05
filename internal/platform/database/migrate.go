@@ -6,6 +6,7 @@ import (
 	"modular-api/internal/modules/complaints"
 	"modular-api/internal/modules/documents"
 	"modular-api/internal/modules/feedback"
+	"modular-api/internal/modules/hub"
 	"modular-api/internal/modules/property"
 	"modular-api/internal/modules/visitors"
 
@@ -26,11 +27,17 @@ func AutoMigrate(db *gorm.DB) error {
 		&announcements.Announcement{},
 		&announcements.Attachment{},
 		&documents.Document{},
+		&documents.DocumentRequest{},
+		&documents.DocumentRequestAttachment{},
+		&documents.DocumentRequestUpdate{},
 		&complaints.Complaint{},
 		&complaints.ComplaintAttachment{},
 		&complaints.ComplaintUpdate{},
 		&feedback.Feedback{},
 		&feedback.FeedbackAttachment{},
+		&hub.Post{},
+		&hub.Reply{},
+		&hub.PostLike{},
 		&visitors.VisitorRequest{},
 	)
 }

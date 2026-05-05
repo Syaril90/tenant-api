@@ -13,6 +13,7 @@ import (
 	"modular-api/internal/modules/complaints"
 	"modular-api/internal/modules/documents"
 	"modular-api/internal/modules/feedback"
+	"modular-api/internal/modules/hub"
 	"modular-api/internal/modules/property"
 	"modular-api/internal/modules/visitors"
 	"modular-api/internal/platform/config"
@@ -51,6 +52,7 @@ func main() {
 	documentsModule := documents.NewModule(db, fileStorage)
 	complaintsModule := complaints.NewModule(db, fileStorage)
 	feedbackModule := feedback.NewModule(db, fileStorage)
+	hubModule := hub.NewModule(db, fileStorage)
 	visitorsModule := visitors.NewModule(db)
 
 	apiRouter := httpserver.NewRouter(
@@ -60,6 +62,7 @@ func main() {
 		documentsModule.Handler(),
 		complaintsModule.Handler(),
 		feedbackModule.Handler(),
+		hubModule.Handler(),
 		visitorsModule.Handler(),
 	)
 

@@ -71,7 +71,7 @@ type buildingDirectory struct {
 
 func (m *Module) ListAdmin() (*ListPayload, error) {
 	var records []Document
-	if err := m.db.Where("status = ?", "published").Order("created_at desc").Find(&records).Error; err != nil {
+	if err := m.db.Where("status = ?", "published").Order("updated_at desc").Order("created_at desc").Find(&records).Error; err != nil {
 		return nil, apperrors.Internal("list admin documents", err)
 	}
 
@@ -96,6 +96,7 @@ func (m *Module) ListResident(unitCode string) (*ListPayload, error) {
 	if err := m.db.
 		Where("status = ?", "published").
 		Where("(audience_scope = ? OR (audience_scope = ? AND building_code = ?))", "all_residents", "building", building.Code).
+		Order("updated_at desc").
 		Order("created_at desc").
 		Find(&records).Error; err != nil {
 		return nil, apperrors.Internal("list resident documents", err)

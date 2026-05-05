@@ -17,8 +17,11 @@ func (m *Module) Handler() *Handler {
 
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/v1/admin/documents", h.handleAdminDocuments)
+	mux.HandleFunc("/api/v1/admin/document-requests", h.handleAdminDocumentRequests)
+	mux.HandleFunc("/api/v1/admin/document-requests/", h.handleAdminDocumentRequestItem)
 	mux.HandleFunc("/api/v1/documents", h.handleResidentDocuments)
 	mux.HandleFunc("/api/v1/documents/", h.handleGetDocument)
+	mux.HandleFunc("/api/v1/document-requests", h.handleResidentDocumentRequests)
 }
 
 func (h *Handler) handleAdminDocuments(w http.ResponseWriter, r *http.Request) {
