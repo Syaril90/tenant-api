@@ -79,9 +79,12 @@ type AdminBuildingConfigInput struct {
 }
 
 type residentLookup struct {
-	Account  property.ResidentAccount
-	Unit     property.Unit
-	Building property.Building
+	AccountCode  string
+	ResidentCode string
+	ResidentName string
+	Email        string
+	Unit         property.Unit
+	Building     property.Building
 }
 
 func (m *Module) List(unitCode string) ([]Item, error) {
@@ -140,9 +143,9 @@ func (m *Module) Create(input CreateVisitorInput) (*Item, error) {
 	now := time.Now()
 	request := VisitorRequest{
 		PublicID:              fmt.Sprintf("visitor-%d", now.UnixMilli()),
-		AccountCode:           resident.Account.AccountCode,
-		ResidentCode:          resident.Account.ResidentCode,
-		ResidentName:          resident.Account.ResidentName,
+		AccountCode:           resident.AccountCode,
+		ResidentCode:          resident.ResidentCode,
+		ResidentName:          resident.ResidentName,
 		BuildingCode:          resident.Building.Code,
 		BuildingName:          resident.Building.Name,
 		UnitCode:              resident.Unit.Code,
@@ -369,36 +372,18 @@ func (m *Module) workspaceFromTransaction(tx *gorm.DB) (*AdminWorkspace, error) 
 }
 
 func (m *Module) lookupResidentAccount(accountCode, unitCode string) (*residentLookup, error) {
-	var account property.ResidentAccount
-	if err := m.db.Where("account_code = ?", accountCode).First(&account).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, apperrors.NotFound("resident account not found")
-		}
-		return nil, apperrors.Internal("failed to find resident account", err)
-	}
-
-	var unit property.Unit
-	if err := m.db.Where("id = ? AND code = ?", account.UnitID, unitCode).First(&unit).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, apperrors.NotFound("resident account not found")
-		}
-		return nil, apperrors.Internal("failed to match unit for resident account", err)
-	}
-
-	var area property.Area
-	if err := m.db.Where("id = ?", unit.AreaID).First(&area).Error; err != nil {
-		return nil, apperrors.Internal("failed to load area", err)
-	}
-
-	var building property.Building
-	if err := m.db.Where("id = ?", area.BuildingID).First(&building).Error; err != nil {
-		return nil, apperrors.Internal("failed to load building", err)
+	accessProfile, err := property.ResolveAccessProfile(m.db, accountCode, unitCode)
+	if err != nil {
+		return nil, err
 	}
 
 	return &residentLookup{
-		Account:  account,
-		Unit:     unit,
-		Building: building,
+		AccountCode:  accessProfile.AccountCode,
+		ResidentCode: accessProfile.ResidentCode,
+		ResidentName: accessProfile.ResidentName,
+		Email:        accessProfile.Email,
+		Unit:         accessProfile.Unit,
+		Building:     accessProfile.Building,
 	}, nil
 }
 

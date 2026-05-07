@@ -108,9 +108,9 @@ func (m *Module) Create(ctx context.Context, input CreateFeedbackInput) (*Item, 
 	publicID := fmt.Sprintf("feedback-%d", now.UnixMilli())
 	record := Feedback{
 		PublicID:     publicID,
-		AccountCode:  resident.Account.AccountCode,
-		ResidentCode: resident.Account.ResidentCode,
-		ResidentName: resident.Account.ResidentName,
+		AccountCode:  resident.AccountCode,
+		ResidentCode: resident.ResidentCode,
+		ResidentName: resident.ResidentName,
 		BuildingName: resident.Building.Name,
 		UnitCode:     resident.Unit.Code,
 		Type:         strings.Title(strings.ReplaceAll(feedbackType, "_", " ")),
@@ -162,35 +162,36 @@ func (m *Module) Create(ctx context.Context, input CreateFeedbackInput) (*Item, 
 }
 
 type residentLookup struct {
-	Account  property.ResidentAccount
-	Unit     property.Unit
-	Building property.Building
+	AccountCode  string
+	ResidentCode string
+	ResidentName string
+	Email        string
+	Unit         property.Unit
+	Building     property.Building
 }
 
 func (m *Module) lookupResidentAccount(accountCode, unitCode string) (*residentLookup, error) {
 	if accountCode != "" {
-		resident, err := m.lookupResidentByAccountCode(accountCode, unitCode)
-		if err == nil {
-			return resident, nil
-		}
-		if err != gorm.ErrRecordNotFound {
-			return nil, err
-		}
+		return m.lookupResidentByAccountCode(accountCode, unitCode)
 	}
 
 	return m.lookupResidentByUnitCode(unitCode)
 }
 
 func (m *Module) lookupResidentByAccountCode(accountCode, unitCode string) (*residentLookup, error) {
-	var account property.ResidentAccount
-	if err := m.db.Where("account_code = ?", accountCode).First(&account).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, apperrors.NotFound("resident account not found")
-		}
-		return nil, apperrors.Internal("failed to find resident account", err)
+	accessProfile, err := property.ResolveAccessProfile(m.db, accountCode, unitCode)
+	if err != nil {
+		return nil, err
 	}
 
-	return m.lookupResidentFromAccount(account, unitCode)
+	return &residentLookup{
+		AccountCode:  accessProfile.AccountCode,
+		ResidentCode: accessProfile.ResidentCode,
+		ResidentName: accessProfile.ResidentName,
+		Email:        accessProfile.Email,
+		Unit:         accessProfile.Unit,
+		Building:     accessProfile.Building,
+	}, nil
 }
 
 func (m *Module) lookupResidentByUnitCode(unitCode string) (*residentLookup, error) {
@@ -214,28 +215,18 @@ func (m *Module) lookupResidentByUnitCode(unitCode string) (*residentLookup, err
 }
 
 func (m *Module) lookupResidentFromAccount(account property.ResidentAccount, unitCode string) (*residentLookup, error) {
-	var unit property.Unit
-	if err := m.db.Where("id = ? AND code = ?", account.UnitID, unitCode).First(&unit).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, apperrors.NotFound("resident account not found")
-		}
-		return nil, apperrors.Internal("failed to match unit for resident account", err)
-	}
-
-	var area property.Area
-	if err := m.db.Where("id = ?", unit.AreaID).First(&area).Error; err != nil {
-		return nil, apperrors.Internal("failed to load area", err)
-	}
-
-	var building property.Building
-	if err := m.db.Where("id = ?", area.BuildingID).First(&building).Error; err != nil {
-		return nil, apperrors.Internal("failed to load building", err)
+	accessProfile, err := property.ResolveAccessProfile(m.db, account.AccountCode, unitCode)
+	if err != nil {
+		return nil, err
 	}
 
 	return &residentLookup{
-		Account:  account,
-		Unit:     unit,
-		Building: building,
+		AccountCode:  accessProfile.AccountCode,
+		ResidentCode: accessProfile.ResidentCode,
+		ResidentName: accessProfile.ResidentName,
+		Email:        accessProfile.Email,
+		Unit:         accessProfile.Unit,
+		Building:     accessProfile.Building,
 	}, nil
 }
 

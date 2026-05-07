@@ -153,9 +153,9 @@ func (m *Module) Create(ctx context.Context, input CreateComplaintInput) (*Item,
 	record := Complaint{
 		PublicID:     publicID,
 		Reference:    nextReference(now),
-		AccountCode:  accountCode,
-		ResidentCode: resident.Account.ResidentCode,
-		ResidentName: resident.Account.ResidentName,
+		AccountCode:  resident.AccountCode,
+		ResidentCode: resident.ResidentCode,
+		ResidentName: resident.ResidentName,
 		BuildingName: resident.Building.Name,
 		UnitCode:     resident.Unit.Code,
 		Category:     strings.Title(strings.ReplaceAll(category, "_", " ")),
@@ -266,42 +266,27 @@ func (m *Module) UpdateStatus(publicID, status, comment string) (*Item, error) {
 }
 
 type residentLookup struct {
-	Account  property.ResidentAccount
-	Unit     property.Unit
-	Building property.Building
+	AccountCode  string
+	ResidentCode string
+	ResidentName string
+	Email        string
+	Unit         property.Unit
+	Building     property.Building
 }
 
 func (m *Module) lookupResidentAccount(accountCode, unitCode string) (*residentLookup, error) {
-	var account property.ResidentAccount
-	if err := m.db.Where("account_code = ?", accountCode).First(&account).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, apperrors.NotFound("resident account not found")
-		}
-		return nil, apperrors.Internal("failed to find resident account", err)
-	}
-
-	var unit property.Unit
-	if err := m.db.Where("id = ? AND code = ?", account.UnitID, unitCode).First(&unit).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, apperrors.NotFound("resident account not found")
-		}
-		return nil, apperrors.Internal("failed to match unit for resident account", err)
-	}
-
-	var area property.Area
-	if err := m.db.Where("id = ?", unit.AreaID).First(&area).Error; err != nil {
-		return nil, apperrors.Internal("failed to load area", err)
-	}
-
-	var building property.Building
-	if err := m.db.Where("id = ?", area.BuildingID).First(&building).Error; err != nil {
-		return nil, apperrors.Internal("failed to load building", err)
+	accessProfile, err := property.ResolveAccessProfile(m.db, accountCode, unitCode)
+	if err != nil {
+		return nil, err
 	}
 
 	return &residentLookup{
-		Account:  account,
-		Unit:     unit,
-		Building: building,
+		AccountCode:  accessProfile.AccountCode,
+		ResidentCode: accessProfile.ResidentCode,
+		ResidentName: accessProfile.ResidentName,
+		Email:        accessProfile.Email,
+		Unit:         accessProfile.Unit,
+		Building:     accessProfile.Building,
 	}, nil
 }
 

@@ -52,6 +52,8 @@ Copy `.env.example` if you want local overrides outside Docker.
 - `GET /api/v1/property/tree`
 - `GET /api/v1/property/units`
 - `GET /api/v1/property/resident-accounts?email=...`
+- `GET /api/v1/property/owner-tenants?ownerAccountCodes=...`
+- `POST /api/v1/property/owner-tenants`
 - `GET /api/v1/admin/billing/tree`
 - `POST /api/v1/admin/billing/charges`
 - `POST /api/v1/admin/billing/payments`

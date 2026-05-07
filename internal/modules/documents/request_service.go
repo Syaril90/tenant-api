@@ -88,9 +88,12 @@ type documentRequestOption struct {
 }
 
 type requestResidentLookup struct {
-	Account  property.ResidentAccount
-	Unit     property.Unit
-	Building property.Building
+	AccountCode  string
+	ResidentCode string
+	ResidentName string
+	Email        string
+	Unit         property.Unit
+	Building     property.Building
 }
 
 func (m *Module) ListAdminRequests() ([]DocumentRequestItem, error) {
@@ -177,9 +180,9 @@ func (m *Module) CreateRequest(ctx context.Context, input CreateDocumentRequestI
 	record := DocumentRequest{
 		PublicID:             publicID,
 		Reference:            nextDocumentRequestReference(now),
-		AccountCode:          accountCode,
-		ResidentCode:         resident.Account.ResidentCode,
-		ResidentName:         resident.Account.ResidentName,
+		AccountCode:          resident.AccountCode,
+		ResidentCode:         resident.ResidentCode,
+		ResidentName:         resident.ResidentName,
 		BuildingCode:         resident.Building.Code,
 		BuildingName:         resident.Building.Name,
 		UnitCode:             resident.Unit.Code,
@@ -323,36 +326,18 @@ func (m *Module) saveDocumentRequestAttachment(
 }
 
 func (m *Module) lookupRequestResidentAccount(accountCode, unitCode string) (*requestResidentLookup, error) {
-	var account property.ResidentAccount
-	if err := m.db.Where("account_code = ?", accountCode).First(&account).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperrors.NotFound("resident account not found")
-		}
-		return nil, apperrors.Internal("find resident account", err)
-	}
-
-	var unit property.Unit
-	if err := m.db.Where("id = ? AND code = ?", account.UnitID, unitCode).First(&unit).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperrors.NotFound("resident account not found")
-		}
-		return nil, apperrors.Internal("match unit for resident account", err)
-	}
-
-	var area property.Area
-	if err := m.db.Where("id = ?", unit.AreaID).First(&area).Error; err != nil {
-		return nil, apperrors.Internal("load area", err)
-	}
-
-	var building property.Building
-	if err := m.db.Where("id = ?", area.BuildingID).First(&building).Error; err != nil {
-		return nil, apperrors.Internal("load building", err)
+	accessProfile, err := property.ResolveAccessProfile(m.db, accountCode, unitCode)
+	if err != nil {
+		return nil, err
 	}
 
 	return &requestResidentLookup{
-		Account:  account,
-		Unit:     unit,
-		Building: building,
+		AccountCode:  accessProfile.AccountCode,
+		ResidentCode: accessProfile.ResidentCode,
+		ResidentName: accessProfile.ResidentName,
+		Email:        accessProfile.Email,
+		Unit:         accessProfile.Unit,
+		Building:     accessProfile.Building,
 	}, nil
 }
 

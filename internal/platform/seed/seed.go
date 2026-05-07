@@ -70,9 +70,27 @@ type seedPayment struct {
 	Status      string
 }
 
+type seedOwnerTenantRegistration struct {
+	PublicID          string
+	OwnerAccountCode  string
+	OwnerResidentCode string
+	OwnerName         string
+	PropertyName      string
+	UnitCode          string
+	TenantName        string
+	TenantEmail       string
+	TenantPhone       string
+	MoveInDate        string
+	Notes             string
+	Status            string
+}
+
 func Run(db *gorm.DB) error {
 	return db.Transaction(func(tx *gorm.DB) error {
 		if err := seedProperty(tx); err != nil {
+			return err
+		}
+		if err := seedOwnerTenantRegistrations(tx); err != nil {
 			return err
 		}
 		if err := seedBilling(tx); err != nil {
@@ -227,6 +245,31 @@ func seedBilling(db *gorm.DB) error {
 			if err := db.Where(billing.PaymentAllocation{PaymentID: model.ID, ChargeID: charge.ID}).FirstOrCreate(&allocation).Error; err != nil {
 				return err
 			}
+		}
+	}
+
+	return nil
+}
+
+func seedOwnerTenantRegistrations(db *gorm.DB) error {
+	for _, item := range ownerTenantRegistrationSeeds() {
+		model := property.OwnerTenantRegistration{
+			PublicID:          item.PublicID,
+			OwnerAccountCode:  item.OwnerAccountCode,
+			OwnerResidentCode: item.OwnerResidentCode,
+			OwnerName:         item.OwnerName,
+			PropertyName:      item.PropertyName,
+			UnitCode:          item.UnitCode,
+			TenantName:        item.TenantName,
+			TenantEmail:       item.TenantEmail,
+			TenantPhone:       item.TenantPhone,
+			MoveInDate:        item.MoveInDate,
+			Notes:             item.Notes,
+			Status:            item.Status,
+		}
+
+		if err := db.Where(property.OwnerTenantRegistration{PublicID: item.PublicID}).Assign(model).FirstOrCreate(&model).Error; err != nil {
+			return err
 		}
 	}
 
@@ -746,6 +789,67 @@ func propertySeeds() []seedBuilding {
 					},
 				},
 			},
+		},
+	}
+}
+
+func ownerTenantRegistrationSeeds() []seedOwnerTenantRegistration {
+	return []seedOwnerTenantRegistration{
+		{
+			PublicID:          "owner-tenant-a1208-aina",
+			OwnerAccountCode:  "acct-a1208",
+			OwnerResidentCode: "RES-A1208-2026",
+			OwnerName:         "Syaril Nazirul",
+			PropertyName:      "Serene Heights Tower A",
+			UnitCode:          "A-12-08",
+			TenantName:        "Nur Aina Shafie",
+			TenantEmail:       "aina.shafie@example.com",
+			TenantPhone:       "+60 12-430 8891",
+			MoveInDate:        "2026-05-15",
+			Notes:             "Initial tenant onboarding created by owner for move-in next week.",
+			Status:            "pending_activation",
+		},
+		{
+			PublicID:          "owner-tenant-a1208-farhan",
+			OwnerAccountCode:  "acct-a1208",
+			OwnerResidentCode: "RES-A1208-2026",
+			OwnerName:         "Syaril Nazirul",
+			PropertyName:      "Serene Heights Tower A",
+			UnitCode:          "A-12-08",
+			TenantName:        "Farhan Idris",
+			TenantEmail:       "farhan.idris@example.com",
+			TenantPhone:       "+60 18-552 1940",
+			MoveInDate:        "2026-07-01",
+			Notes:             "Second tenant profile for the same owner-managed unit.",
+			Status:            "active",
+		},
+		{
+			PublicID:          "owner-tenant-b0411-hakim",
+			OwnerAccountCode:  "acct-b0411",
+			OwnerResidentCode: "RES-B0411-2026",
+			OwnerName:         "Syaril Nazirul",
+			PropertyName:      "Serene Heights Tower B",
+			UnitCode:          "B-04-11",
+			TenantName:        "Hakim Roslan",
+			TenantEmail:       "hakim.roslan@example.com",
+			TenantPhone:       "+60 17-221 4408",
+			MoveInDate:        "2026-06-01",
+			Notes:             "Upcoming tenancy registration prepared by the owner.",
+			Status:            "active",
+		},
+		{
+			PublicID:          "owner-tenant-a0101-syaril",
+			OwnerAccountCode:  "acct-a0101",
+			OwnerResidentCode: "RES-A0101-2026",
+			OwnerName:         "Amirul Faiz",
+			PropertyName:      "Serene Heights Tower A",
+			UnitCode:          "A-01-01",
+			TenantName:        "Syaril Nazirul",
+			TenantEmail:       "syarilnazirul.sazali@gmail.com",
+			TenantPhone:       "+60 12-778 4401",
+			MoveInDate:        "2026-05-20",
+			Notes:             "Seeded tenant access profile for app login and unit switching tests.",
+			Status:            "active",
 		},
 	}
 }

@@ -120,10 +120,14 @@ type ToggleLikeInput struct {
 }
 
 type residentLookup struct {
-	Account  property.ResidentAccount
-	Unit     property.Unit
-	Area     property.Area
-	Building property.Building
+	AccountCode  string
+	ResidentCode string
+	ResidentName string
+	Email        string
+	ResidentRole string
+	Unit         property.Unit
+	Area         property.Area
+	Building     property.Building
 }
 
 func (m *Module) List(input ListInput) (*Model, error) {
@@ -158,7 +162,7 @@ func (m *Module) List(input ListInput) (*Model, error) {
 
 		var likes []PostLike
 		if err := m.db.
-			Where("account_code = ? AND post_id IN ?", resident.Account.AccountCode, postIDs).
+			Where("account_code = ? AND post_id IN ?", resident.AccountCode, postIDs).
 			Find(&likes).Error; err != nil {
 			return nil, apperrors.Internal("failed to load hub likes", err)
 		}
@@ -199,9 +203,9 @@ func (m *Module) CreatePost(ctx context.Context, input CreatePostInput) (*PostIt
 	post := Post{
 		PublicID:       fmt.Sprintf("hub-post-%d", now.UnixMilli()),
 		PostType:       postType,
-		AccountCode:    resident.Account.AccountCode,
-		ResidentCode:   resident.Account.ResidentCode,
-		ResidentName:   resident.Account.ResidentName,
+		AccountCode:    resident.AccountCode,
+		ResidentCode:   resident.ResidentCode,
+		ResidentName:   resident.ResidentName,
 		BuildingCode:   resident.Building.Code,
 		BuildingName:   resident.Building.Name,
 		UnitCode:       resident.Unit.Code,
@@ -291,7 +295,7 @@ func (m *Module) CreateReply(input CreateReplyInput, postPublicID string) (*Post
 
 		var likeCount int64
 		if err := tx.Model(&PostLike{}).
-			Where("post_id = ? AND account_code = ?", post.ID, resident.Account.AccountCode).
+			Where("post_id = ? AND account_code = ?", post.ID, resident.AccountCode).
 			Count(&likeCount).Error; err != nil {
 			return apperrors.Internal("failed to load hub like state", err)
 		}
@@ -300,9 +304,9 @@ func (m *Module) CreateReply(input CreateReplyInput, postPublicID string) (*Post
 		reply := Reply{
 			PublicID:       fmt.Sprintf("hub-reply-%d", time.Now().UnixNano()),
 			PostID:         post.ID,
-			AccountCode:    resident.Account.AccountCode,
-			ResidentCode:   resident.Account.ResidentCode,
-			ResidentName:   resident.Account.ResidentName,
+			AccountCode:    resident.AccountCode,
+			ResidentCode:   resident.ResidentCode,
+			ResidentName:   resident.ResidentName,
 			BuildingCode:   resident.Building.Code,
 			BuildingName:   resident.Building.Name,
 			UnitCode:       resident.Unit.Code,
@@ -359,7 +363,7 @@ func (m *Module) ToggleLike(input ToggleLikeInput, postPublicID string) (*PostIt
 
 		likedByMe := false
 		var existing PostLike
-		switch err := tx.Where("post_id = ? AND account_code = ?", post.ID, resident.Account.AccountCode).First(&existing).Error; {
+		switch err := tx.Where("post_id = ? AND account_code = ?", post.ID, resident.AccountCode).First(&existing).Error; {
 		case err == nil:
 			if err := tx.Delete(&existing).Error; err != nil {
 				return apperrors.Internal("failed to remove hub like", err)
@@ -374,8 +378,8 @@ func (m *Module) ToggleLike(input ToggleLikeInput, postPublicID string) (*PostIt
 			likedByMe = true
 			like := PostLike{
 				PostID:       post.ID,
-				AccountCode:  resident.Account.AccountCode,
-				ResidentCode: resident.Account.ResidentCode,
+				AccountCode:  resident.AccountCode,
+				ResidentCode: resident.ResidentCode,
 				BuildingCode: resident.Building.Code,
 				UnitCode:     resident.Unit.Code,
 			}
@@ -406,49 +410,32 @@ func (m *Module) lookupResidentAccount(accountCode, unitCode string) (*residentL
 		return nil, apperrors.Validation("accountCode and unitCode are required")
 	}
 
-	var account property.ResidentAccount
-	if err := m.db.Where("account_code = ?", accountCode).First(&account).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperrors.NotFound("resident account not found")
-		}
-		return nil, apperrors.Internal("failed to load resident account", err)
-	}
-
-	var unit property.Unit
-	if err := m.db.Where("id = ? AND code = ?", account.UnitID, unitCode).First(&unit).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperrors.NotFound("resident account not found")
-		}
-		return nil, apperrors.Internal("failed to load resident unit", err)
-	}
-
-	var area property.Area
-	if err := m.db.Where("id = ?", unit.AreaID).First(&area).Error; err != nil {
-		return nil, apperrors.Internal("failed to load resident area", err)
-	}
-
-	var building property.Building
-	if err := m.db.Where("id = ?", area.BuildingID).First(&building).Error; err != nil {
-		return nil, apperrors.Internal("failed to load resident building", err)
+	accessProfile, err := property.ResolveAccessProfile(m.db, accountCode, unitCode)
+	if err != nil {
+		return nil, err
 	}
 
 	return &residentLookup{
-		Account:  account,
-		Unit:     unit,
-		Area:     area,
-		Building: building,
+		AccountCode:  accessProfile.AccountCode,
+		ResidentCode: accessProfile.ResidentCode,
+		ResidentName: accessProfile.ResidentName,
+		Email:        accessProfile.Email,
+		ResidentRole: accessProfile.ResidentRole,
+		Unit:         accessProfile.Unit,
+		Area:         accessProfile.Area,
+		Building:     accessProfile.Building,
 	}, nil
 }
 
 func buildAuthorSnapshot(resident *residentLookup, avatarURL string) AuthorSnapshot {
 	return AuthorSnapshot{
-		DisplayName:    resident.Account.ResidentName,
+		DisplayName:    resident.ResidentName,
 		AvatarURL:      strings.TrimSpace(avatarURL),
 		BuildingName:   resident.Building.Name,
 		BuildingCode:   resident.Building.Code,
 		UnitCode:       resident.Unit.Code,
-		ResidentRole:   residentRoleForUnit(resident.Unit.Status),
-		SecondaryLabel: resident.Account.Email,
+		ResidentRole:   resident.ResidentRole,
+		SecondaryLabel: resident.Email,
 	}
 }
 

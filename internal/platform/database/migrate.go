@@ -14,11 +14,12 @@ import (
 )
 
 func AutoMigrate(db *gorm.DB) error {
-	return db.AutoMigrate(
+	if err := db.AutoMigrate(
 		&property.Building{},
 		&property.Area{},
 		&property.Unit{},
 		&property.ResidentAccount{},
+		&property.OwnerTenantRegistration{},
 		&billing.Charge{},
 		&billing.Payment{},
 		&billing.PaymentAllocation{},
@@ -39,5 +40,17 @@ func AutoMigrate(db *gorm.DB) error {
 		&hub.Reply{},
 		&hub.PostLike{},
 		&visitors.VisitorRequest{},
-	)
+	); err != nil {
+		return err
+	}
+
+	// AutoMigrate does not remove obsolete unique indexes, so clean up the
+	// pre-multi-tenant constraint if this database was created before the change.
+	if db.Migrator().HasIndex(&property.OwnerTenantRegistration{}, "idx_owner_tenant_unit") {
+		if err := db.Migrator().DropIndex(&property.OwnerTenantRegistration{}, "idx_owner_tenant_unit"); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
